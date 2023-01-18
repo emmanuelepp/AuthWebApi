@@ -1,4 +1,5 @@
 ﻿using AuthWebApi.Models;
+using AuthWebApi.Services.AuthService;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,12 +9,20 @@ namespace AuthWebApi.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        [HttpPost]
-        public async Task<ActionResult<User>> RegisterUSer(UserDto request) 
-        {
-            var user = new User {UserName = request.UserName};
+        private readonly IAuthService _authService;
 
-         return Ok(user);
+        public AuthController(IAuthService authService)
+        {
+            _authService = authService;
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<User>> RegisterUSer(UserDto userDto) 
+        {
+            var response = await _authService.RegisterUser(userDto);
+
+         return Ok(response);
+
         }
     }
 }
