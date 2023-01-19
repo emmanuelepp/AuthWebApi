@@ -1,5 +1,6 @@
 ﻿using AuthWebApi.Models;
 using AuthWebApi.Services.AuthService;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -33,6 +34,12 @@ namespace AuthWebApi.Controllers
                 return Ok(response);
 
             return BadRequest(response);
+        }
+
+        [HttpGet, Authorize]
+        public ActionResult<string> ValidateUserAuthorization() 
+        {
+            return Ok("You're authorized!"); 
         }
     }
 }
