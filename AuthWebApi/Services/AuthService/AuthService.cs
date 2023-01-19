@@ -12,7 +12,7 @@ namespace AuthWebApi.Services.AuthService
     public class AuthService : IAuthService
     {
         private readonly DataContext _dbContext;
-        private readonly IConfiguration _configuration; 
+        private readonly IConfiguration _configuration;
 
         public AuthService(DataContext dbContext, IConfiguration configuration)
         {
@@ -22,19 +22,28 @@ namespace AuthWebApi.Services.AuthService
 
         public async Task<AuthResponseDto> Login(UserDto userDto)
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync( user => user.UserName == userDto.UserName );
+            var user = await _dbContext.Users.FirstOrDefaultAsync(user => user.UserName == userDto.UserName);
             if (user == null)
             {
-                return new AuthResponseDto { Message = "User not found."};
+                return new AuthResponseDto { Message = "User not found." };
             }
 
-            if (!VerifyPasswordHash(userDto.Password, user.PasswordHash, user.PasswordSalt)) 
+            if (!VerifyPasswordHash(userDto.Password, user.PasswordHash, user.PasswordSalt))
             {
-                return new AuthResponseDto { Message = "Wrong Password."};
-            
+                return new AuthResponseDto { Message = "Wrong Password." };
+
             }
+
             string token = CreateToken(user);
-            return new AuthResponseDto { Success = true, Token = token};
+            var refreshToken = CreateRefreshtoken();
+
+            return new AuthResponseDto
+            {
+                Success = true,
+                Token = token,
+                RefreshToken = refreshToken.Token,
+                TokenExpires = refreshToken.Expires
+            };
         }
 
         public async Task<User> RegisterUser(UserDto userDto)
@@ -53,7 +62,7 @@ namespace AuthWebApi.Services.AuthService
             return user;
         }
 
-        private bool VerifyPasswordHash(string password,  byte[] passwordHash,  byte[] passwordSalt) 
+        private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
         {
             using (var hmac = new HMACSHA512(passwordSalt))
             {
@@ -68,11 +77,10 @@ namespace AuthWebApi.Services.AuthService
             {
                 passwordSalt = hmac.Key;
                 passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-
             }
         }
 
-        private string CreateToken(User user) 
+        private string CreateToken(User user)
         {
             var claims = new List<Claim>()
             {
@@ -93,6 +101,18 @@ namespace AuthWebApi.Services.AuthService
             var jwt = new JwtSecurityTokenHandler().WriteToken(token);
 
             return jwt;
+        }
+
+        private RefreshToken CreateRefreshtoken()
+        {
+            var refreshToken = new RefreshToken
+            {
+                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+                Expires = DateTime.Now.AddDays(7),
+                Created = DateTime.Now
+            };
+
+            return refreshToken;
         }
     }
 }
