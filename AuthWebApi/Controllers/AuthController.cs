@@ -24,5 +24,15 @@ namespace AuthWebApi.Controllers
          return Ok(response);
 
         }
+
+        [HttpPost("login")]
+        public async Task<ActionResult<User>> Login(UserDto userDto)
+        {
+            var response = await _authService.Login(userDto);
+            if (response.Success)
+                return Ok(response);
+
+            return BadRequest(response);
+        }
     }
 }
