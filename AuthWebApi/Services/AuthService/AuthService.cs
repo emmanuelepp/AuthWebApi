@@ -13,11 +13,13 @@ namespace AuthWebApi.Services.AuthService
     {
         private readonly DataContext _dbContext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AuthService(DataContext dbContext, IConfiguration configuration)
+        public AuthService(DataContext dbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbContext = dbContext;
             _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AuthResponseDto> Login(UserDto userDto)
@@ -36,6 +38,7 @@ namespace AuthWebApi.Services.AuthService
 
             string token = CreateToken(user);
             var refreshToken = CreateRefreshtoken();
+            SetRefreshtoken(refreshToken, user);
 
             return new AuthResponseDto
             {
@@ -60,6 +63,32 @@ namespace AuthWebApi.Services.AuthService
             await _dbContext.SaveChangesAsync();
 
             return user;
+        }
+
+        public async Task<AuthResponseDto> RefreshToken()
+        {
+            var refreshToken = _httpContextAccessor?.HttpContext?.Request.Cookies["refreshToken"];
+            var user = await _dbContext.Users.FirstOrDefaultAsync( user => user.RefreshToken== refreshToken );
+            if (user == null)
+            {
+                return new AuthResponseDto { Message = "Invalid Refresh Token" };
+            }
+            else if (user.TokenExprires < DateTime.Now)
+            {
+                return new AuthResponseDto { Message = "Token expired" };
+            }
+
+            string token = CreateToken(user);
+            var newRefreshToken = CreateRefreshtoken();
+            SetRefreshtoken(newRefreshToken, user);
+
+            return new AuthResponseDto
+            {
+                Success= true,
+                Token = token,
+                RefreshToken = newRefreshToken.Token,
+                TokenExpires = newRefreshToken.Expires
+            };
         }
 
         private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
@@ -113,6 +142,23 @@ namespace AuthWebApi.Services.AuthService
             };
 
             return refreshToken;
+        }
+
+        private async void SetRefreshtoken(RefreshToken refreshToken, User user) 
+        {
+            var cookieOptions = new CookieOptions 
+            {
+                HttpOnly= true,
+                Expires= refreshToken.Expires,
+            };
+
+            _httpContextAccessor?.HttpContext?.Response
+                .Cookies.Append("refreshToken", refreshToken.Token, cookieOptions);
+            user.RefreshToken = refreshToken.Token;
+            user.TokenCreated = refreshToken.Created;
+            user.TokenExprires = refreshToken.Expires;
+
+            await _dbContext.SaveChangesAsync();
         }
     }
 }

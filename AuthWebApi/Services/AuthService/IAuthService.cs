@@ -6,5 +6,6 @@ namespace AuthWebApi.Services.AuthService
     {
         Task<User> RegisterUser(UserDto userDto);
         Task<AuthResponseDto> Login(UserDto userDto);  
+        Task<AuthResponseDto> RefreshToken(); 
     }
 }
